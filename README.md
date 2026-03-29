@@ -1,10 +1,8 @@
 # BugCrusher AI
 
-#### Video Demo: [https://youtu.be/x]
-
 #### Description:
 
-> **Note:** This project no longer includes URL scanning. BugCrusher AI focuses exclusively on static code and file analysis — paste code or upload a source file, config, or Dockerfile and receive a structured security report in seconds.
+> **Note:** BugCrusher AI focuses exclusively on static code and file analysis. Paste code or upload a source file, config, or Dockerfile and receive a structured security report in seconds.
 
 BugCrusher AI is an AI-powered security analysis tool that lets anyone analyze code and configuration files for security vulnerabilities and get back a professional bug bounty report in seconds. It is built with Django on the backend and vanilla JavaScript on the frontend, and it is powered by Llama 3.3 70B running through the Groq API for free. You submit a target, the AI analyzes it, and you get severity ratings, CVSS scores, CWE identifiers, proof of concept steps, remediation guidance, and curated reference links. No security experience required to use it, and no credit card required to run it!
 
