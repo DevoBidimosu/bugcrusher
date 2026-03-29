@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}auth // BugCrusher AI{% endblock %}
+{% block content %}
+<div class="auth-container">
+  <div class="auth-header">
+    <pre class="auth-ascii">
+ ██████╗ ██╗   ██╗ ██████╗
+ ██╔══██╗██║   ██║██╔════╝
+ ██████╔╝██║   ██║██║  ███╗
+ ██╔══██╗██║   ██║██║   ██║
+ ██████╔╝╚██████╔╝╚██████╔╝
+ ╚═════╝  ╚═════╝  ╚═════╝</pre>
+    <div class="auth-title">authentication required // <span>bugcrusher_ai</span></div>
+  </div>
+
+  {% if messages %}{% for m in messages %}<div class="alert alert--error">{{ m }}</div>{% endfor %}{% endif %}
+
+  <div class="scan-form-container">
+    <div class="scan-form-header">
+      <span class="dot dot-red"></span><span class="dot dot-yel"></span><span class="dot dot-grn"></span>
+      <span class="scan-form-title">login.sh — credential verification</span>
+    </div>
+    <div class="scan-form-body">
+      <form method="POST">
+        {% csrf_token %}
+        <div class="form-group">
+          <label class="form-label">Username</label>
+          <input type="text" name="username" class="form-input" placeholder="operator_handle" required autofocus>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input type="password" name="password" class="form-input" placeholder="**************" required>
+        </div>
+        <button type="submit" class="btn btn--primary" style="width:100%; justify-content:center; margin-top:0.5rem;">
+          authenticate
+        </button>
+      </form>
+      <div style="text-align:center; margin-top:1rem; font-size:0.75rem; color:var(--dim);">
+        no account? <a href="{% url 'register' %}" style="color:var(--green);">register_new_operator</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

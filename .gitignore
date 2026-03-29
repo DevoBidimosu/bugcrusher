@@ -1,0 +1,13 @@
+# Environment — never commit your API key
+.env
+
+# Django
+*.pyc
+__pycache__/
+db.sqlite3
+media/
+staticfiles/
+*.log
+
+# Test artifacts
+media/uploads/

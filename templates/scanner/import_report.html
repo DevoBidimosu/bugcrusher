@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}import_report // BugCrusher AI{% endblock %}
+
+{% block content %}
+<div class="section-header">
+  <h1 class="section-title"><span>import</span>_report</h1>
+  <div class="section-line"></div>
+  <a href="{% url 'dashboard' %}" class="btn btn--ghost" style="font-size:0.75rem; white-space:nowrap;">../dashboard</a>
+</div>
+
+<div style="font-size:0.75rem; color:var(--dim); margin-bottom:1.5rem; line-height:1.8;">
+  // Supported formats:<br>
+  &nbsp;&nbsp;[1] <span style="color:var(--green)">.json</span> — BugCrusher export or external scanner (v28/v32 with scan_info)<br>
+  &nbsp;&nbsp;[2] <span style="color:var(--green)">.html</span> — BugCrusher HTML export<br>
+  &nbsp;&nbsp;[3] <span style="color:var(--green)">.md</span> &nbsp;— BugCrusher Markdown export<br>
+  &nbsp;&nbsp;[4] <span style="color:var(--green)">.txt</span> &nbsp;— BugCrusher TXT export
+</div>
+
+<div class="scan-form-container">
+  <div class="scan-form-header">
+    <span class="dot dot-red"></span><span class="dot dot-yel"></span><span class="dot dot-grn"></span>
+    <span class="scan-form-title">import_report.sh — ingest external scan data</span>
+  </div>
+  <div class="scan-form-body">
+
+    <div class="form-group">
+      <label class="form-label">JSON Report File</label>
+      <div class="drop-zone" id="drop-zone">
+        <span class="drop-zone-icon">📂</span>
+        <div>drop JSON file here or <span style="color:var(--green)">click to browse</span></div>
+        <div style="font-size:0.7rem; margin-top:0.3rem; color:var(--dimmer)">accepts: .json .html .md .txt</div>
+      </div>
+      <input type="file" id="import-file" accept=".json,.html,.htm,.md,.markdown,.txt" style="display:none">
+      <div id="file-name" style="margin-top:0.4rem; font-size:0.78rem; color:var(--green); display:none;"></div>
+    </div>
+
+    <!-- Preview panel -->
+    <div id="preview-panel" style="display:none; margin-bottom:1rem;">
+      <div style="font-size:0.7rem; color:var(--dim); letter-spacing:0.15em; margin-bottom:0.5rem;"># file_preview</div>
+      <div class="terminal-loader" id="preview-content" style="min-height:auto; padding:0.8rem; font-size:0.75rem;"></div>
+    </div>
+
+    <button class="btn btn--primary" id="import-btn" disabled style="width:100%; justify-content:center; opacity:0.4;">
+      import_report --ingest
+    </button>
+
+    <div id="import-error" style="display:none; margin-top:0.8rem;" class="alert alert--error"></div>
+  </div>
+</div>
+
+<!-- Format reference -->
+<div style="margin-top:2rem;">
+  <div style="font-size:0.7rem; color:var(--dim); letter-spacing:0.15em; margin-bottom:0.8rem; border-bottom:1px solid var(--border); padding-bottom:0.4rem;"># expected_format — external scanner</div>
+  <pre style="background:#050505; border:1px solid var(--border2); padding:1rem; font-size:0.72rem; color:var(--cyan); overflow-x:auto; line-height:1.6;">{
+  "scan_info": {
+    "target": "http://target.com",
+    "scan_time": 1234.5,
+    "timestamp": "2026-01-01T00:00:00",
+    "requests": 5000,
+    "urls_scanned": 50
+  },
+  "vulnerabilities": [
+    {
+      "type": "SQL Injection",
+      "url": "http://target.com/api/users",
+      "parameter": "id",
+      "payload": "1' OR '1'='1",
+      "evidence": "SQL error in response",
+      "severity": "Critical",
+      "cvss_score": 9.8,
+      "method": "GET",
+      "confidence": "High",
+      "confidence_pct": 90,
+      "detection_method": "Error-based detection",
+      "remediation": "Use parameterized queries",
+      "references": ["CWE-89", "OWASP-A03:2021"],
+      "timestamp": "2026-01-01 12:00:00",
+      "exploitation_notes": ""
+    }
+  ]
+}</pre>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('import-file');
+const fileNameEl = document.getElementById('file-name');
+const importBtn = document.getElementById('import-btn');
+const previewPanel = document.getElementById('preview-panel');
+const previewContent = document.getElementById('preview-content');
+const errorEl = document.getElementById('import-error');
+
+let selectedFile = null;
+
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) handleFile(fileInput.files[0]); });
+
+function handleFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['json','html','htm','md','markdown','txt'].includes(ext)) {
+    showError('Supported formats: .json  .html  .md  .txt');
+    return;
+  }
+  selectedFile = file;
+  fileNameEl.textContent = `✓ ${file.name} (${(file.size/1024).toFixed(1)} KB)`;
+  fileNameEl.style.display = 'block';
+  dropZone.style.borderColor = 'var(--green)';
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const raw = e.target.result;
+      let formatLabel = '', vulnCount = '?', target = '?', counts = {};
+
+      if (ext === 'json') {
+        const data = JSON.parse(raw);
+        const isV32 = 'scan_info' in data;
+        formatLabel = isV32 ? 'external scanner (v28/v32)' : 'bugcrusher json export';
+        const vulns = data.vulnerabilities || [];
+        vulnCount = vulns.length;
+        target = isV32 ? (data.scan_info && data.scan_info.target || '?') : (data.target_url || '?');
+        vulns.forEach(v => { const s=(v.severity||'info').toLowerCase(); counts[s]=(counts[s]||0)+1; });
+      } else if (ext === 'html' || ext === 'htm') {
+        formatLabel = 'bugcrusher html export';
+        const m = raw.match(/Scan #(\d+)/); target = m ? m[0] : 'html report';
+        const vm = raw.match(/class="vuln"/g); vulnCount = vm ? vm.length : '?';
+        const sm = [...raw.matchAll(/badge--(\w+)/g)]; sm.forEach(m => { counts[m[1]]=(counts[m[1]]||0)+1; });
+      } else if (ext === 'md' || ext === 'markdown') {
+        formatLabel = 'bugcrusher markdown export';
+        target = 'markdown report';
+        const vm = raw.match(/^### \d+\./gm); vulnCount = vm ? vm.length : '?';
+        const sm = [...raw.matchAll(/Severity.*?(critical|high|medium|low|info)/gi)];
+        sm.forEach(m => { const s=m[1].toLowerCase(); counts[s]=(counts[s]||0)+1; });
+      } else if (ext === 'txt') {
+        formatLabel = 'bugcrusher txt export';
+        const tm = raw.match(/Target\s*:\s*(.+)/); target = tm ? tm[1].trim() : 'txt report';
+        const vm = raw.match(/^\[\d+\]/gm); vulnCount = vm ? vm.length : '?';
+        const sm = [...raw.matchAll(/^\[\d+\]\s+(CRITICAL|HIGH|MEDIUM|LOW|INFO)/gmi)];
+        sm.forEach(m => { const s=m[1].toLowerCase(); counts[s]=(counts[s]||0)+1; });
+      }
+
+      const SC = {critical:'var(--severity-critical)',high:'var(--severity-high)',
+                  medium:'var(--severity-medium)',low:'var(--severity-low)',info:'var(--severity-info)'};
+      const sevHTML = Object.entries(counts)
+        .map(([s,n]) => `<span style="color:${SC[s]||'#888'}">${n} ${s}</span>`).join(' &nbsp;');
+
+      previewContent.innerHTML = `
+        <div class="terminal-line info" style="animation-delay:0s">format: <span style="color:var(--green)">${formatLabel}</span></div>
+        <div class="terminal-line" style="animation-delay:0.1s">target: <span style="color:var(--white)">${target}</span></div>
+        <div class="terminal-line" style="animation-delay:0.2s">vulnerabilities: <span style="color:var(--white)">${vulnCount}</span> &nbsp; ${sevHTML}</div>
+        <div class="terminal-line info" style="animation-delay:0.3s">ready to import <span class="terminal-cursor"></span></div>
+      `;
+      previewPanel.style.display = 'block';
+      importBtn.disabled = false;
+      importBtn.style.opacity = '1';
+      hideError();
+    } catch (err) {
+      showError('Could not preview: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+importBtn.addEventListener('click', async () => {
+  if (!selectedFile) return;
+  importBtn.disabled = true;
+  importBtn.textContent = '> importing...';
+
+  const csrf = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+  const fd = new FormData();
+  fd.append('report_file', selectedFile);
+
+  try {
+    const res = await fetch('/scan/import/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': csrf },
+      body: fd,
+    });
+    const data = await res.json();
+    if (data.scan_id) {
+      window.location.href = `/scan/${data.scan_id}/`;
+    } else {
+      showError(data.error || 'Import failed.');
+      importBtn.disabled = false;
+      importBtn.textContent = '> import_report --ingest';
+      importBtn.style.opacity = '1';
+    }
+  } catch (err) {
+    showError('Network error: ' + err.message);
+    importBtn.disabled = false;
+    importBtn.style.opacity = '1';
+  }
+});
+
+function showError(msg) {
+  errorEl.textContent = msg;
+  errorEl.style.display = 'block';
+}
+function hideError() {
+  errorEl.style.display = 'none';
+}
+</script>
+{% endblock %}

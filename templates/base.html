@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}BugCrusher AI{% endblock %}</title>
+  {% load static %}
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'css/main.css' %}">
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<canvas id="matrix-bg"></canvas>
+
+<nav class="navbar">
+  <a href="{% url 'index' %}" class="nav-brand">
+    <span class="brand-text">BugCrusher<span class="accent">AI</span></span>
+  </a>
+  <div class="nav-links">
+    {% if user.is_authenticated %}
+      <a href="{% url 'dashboard' %}" class="nav-link">~/dashboard</a>
+      <a href="{% url 'import_report' %}" class="nav-link">~/import</a>
+      <span class="nav-user">{{ user.username }}</span>
+      <form method="post" action="{% url 'logout' %}" style="display:inline; margin:0; padding:0;">
+        {% csrf_token %}
+        <button type="submit" class="nav-link nav-link--danger" style="background:none; border:none; cursor:pointer; font:inherit; padding:0;">logout</button>
+      </form>
+    {% else %}
+      <a href="{% url 'login' %}" class="nav-link">login</a>
+      <a href="{% url 'register' %}" class="nav-link nav-link--cta">register</a>
+    {% endif %}
+  </div>
+</nav>
+
+<main class="main-content">
+  {% if messages %}
+    {% for message in messages %}
+      <div class="alert alert--{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+  {% endif %}
+  {% block content %}{% endblock %}
+</main>
+
+<script>
+// Matrix rain canvas
+(function() {
+  const canvas = document.getElementById('matrix-bg');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+  const cols = Math.floor(canvas.width / 14);
+  const drops = Array(cols).fill(1);
+  const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノ';
+  function draw() {
+    ctx.fillStyle = 'rgba(10,10,10,0.05)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#00ff41';
+    ctx.font = '12px Share Tech Mono';
+    drops.forEach((y, i) => {
+      const char = chars[Math.floor(Math.random() * chars.length)];
+      ctx.fillText(char, i * 14, y * 14);
+      if (y * 14 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+      drops[i]++;
+    });
+  }
+  setInterval(draw, 60);
+  window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  });
+})();
+</script>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Dashboard // BugCrusher AI{% endblock %}
+
+{% block content %}
+<div class="section-header">
+  <h1 class="section-title"><span>scan</span>_history</h1>
+  <div class="section-line"></div>
+  <a href="{% url 'import_report' %}" class="btn btn--ghost" style="white-space:nowrap; font-size:0.75rem;">import_report</a>
+  <a href="{% url 'index' %}" class="btn btn--primary" style="white-space:nowrap; font-size:0.75rem;">new_scan</a>
+</div>
+
+<div class="sysinfo">
+  <span class="sysinfo-item">USER: <span>{{ user.username }}</span></span>
+  <span class="sysinfo-item">TOTAL_SCANS: <span>{{ total_scans }}</span></span>
+  <span class="sysinfo-item">VULNS_FOUND: <span>{{ total_vulns }}</span></span>
+  <span class="sysinfo-item">CRITICAL: <span>{{ critical_vulns }}</span></span>
+</div>
+
+<div class="stats-grid" style="margin-bottom:1.5rem;">
+  <div class="stat-card" data-label="Total Scans">
+    <div class="stat-value">{{ total_scans }}</div>
+  </div>
+  <div class="stat-card" data-label="Completed">
+    <div class="stat-value">{{ completed_scans }}</div>
+  </div>
+  <div class="stat-card" data-label="Vulnerabilities">
+    <div class="stat-value stat-value--orange">{{ total_vulns }}</div>
+  </div>
+  <div class="stat-card" data-label="Critical">
+    <div class="stat-value stat-value--red">{{ critical_vulns }}</div>
+  </div>
+</div>
+
+<!-- Search & filter bar -->
+<form method="get" class="dashboard-filter-bar">
+  <input type="text" name="q" value="{{ search_query }}"
+         class="form-input dashboard-search"
+         placeholder="search by language or target...">
+  <select name="status" class="form-select dashboard-filter-select">
+    <option value="">all status</option>
+    <option value="complete" {% if status_filter == 'complete' %}selected{% endif %}>complete</option>
+    <option value="failed"   {% if status_filter == 'failed'   %}selected{% endif %}>failed</option>
+    <option value="running"  {% if status_filter == 'running'  %}selected{% endif %}>running</option>
+    <option value="pending"  {% if status_filter == 'pending'  %}selected{% endif %}>pending</option>
+  </select>
+  <select name="method" class="form-select dashboard-filter-select">
+    <option value="">all inputs</option>
+    <option value="paste"  {% if method_filter == 'paste'  %}selected{% endif %}>💻 paste</option>
+    <option value="upload" {% if method_filter == 'upload' %}selected{% endif %}>📁 upload</option>
+  </select>
+  <button type="submit" class="btn btn--ghost" style="font-size:0.75rem;">filter</button>
+  {% if search_query or status_filter or method_filter %}
+    <a href="{% url 'dashboard' %}" class="btn btn--ghost" style="font-size:0.75rem; border-color:var(--red); color:var(--red);">✕ clear</a>
+  {% endif %}
+</form>
+
+{% if scans %}
+<div style="font-size:0.7rem; color:var(--dim); margin-bottom:0.5rem; letter-spacing:0.1em;">
+  // RECENT SCANS — click to view report
+  {% if search_query or status_filter or method_filter %}
+    <span style="color:var(--yellow);">&nbsp;[filtered]</span>
+  {% endif %}
+</div>
+<div class="scan-list">
+  {% for scan in scans %}
+  <div class="scan-item" onclick="window.location='{% url 'scan_detail' scan.id %}'">
+    <span class="status-dot status-dot--{{ scan.status }}"></span>
+    <span class="scan-type-badge scan-type-badge--{{ scan.input_method }}">
+      {% if scan.input_method == 'upload' %}📁 upload{% else %}💻 paste{% endif %}
+    </span>
+    <span class="scan-target">
+      {% if scan.language and scan.language != 'unknown' %}<span style="color:var(--dim); font-size:0.7rem;">[{{ scan.language }}]&nbsp;</span>{% endif %}{{ scan.get_target_display_name|truncatechars:55 }}
+    </span>
+    <span>
+      {% if scan.status == 'complete' %}
+        <span style="font-size:0.75rem; color:var(--dim);">{{ scan.vulnerability_count }} vuln{{ scan.vulnerability_count|pluralize }}</span>
+        {% if scan.critical_count > 0 %}&nbsp;<span class="badge badge--critical">{{ scan.critical_count }}x CRIT</span>{% endif %}
+        {% if scan.high_count > 0 and scan.critical_count == 0 %}&nbsp;<span class="badge badge--high">{{ scan.high_count }}x HIGH</span>{% endif %}
+      {% elif scan.status == 'running' %}
+        <span style="font-size:0.75rem; color:var(--green);">scanning...</span>
+      {% elif scan.status == 'failed' %}
+        <span class="badge badge--critical">failed</span>
+      {% else %}
+        <span style="font-size:0.75rem; color:var(--dim);">queued</span>
+      {% endif %}
+    </span>
+    <span class="scan-meta">{{ scan.created_at|date:"M d H:i" }}</span>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="empty-state">
+  {% if search_query or status_filter or method_filter %}
+  <div style="color:var(--dim); font-size:0.82rem; padding:2rem;">
+    // no scans match your filters<br>
+    <a href="{% url 'dashboard' %}" style="color:var(--green);">clear filters</a>
+  </div>
+  {% else %}
+  <pre class="empty-state-ascii">
+    ╔════════════════════════════╗
+    ║   NO SCANS IN DATABASE     ║
+    ║   run your first analysis  ║
+    ╚════════════════════════════╝</pre>
+  <a href="{% url 'index' %}" class="btn btn--primary" style="margin-top:1rem;">./new_scan.sh</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

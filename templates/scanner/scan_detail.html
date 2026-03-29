@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}scan::{{ scan.id }} // BugCrusher AI{% endblock %}
+
+{% block content %}
+<div class="section-header" style="margin-bottom:0.8rem;">
+  <a href="{% url 'dashboard' %}" style="color:var(--dim); font-size:0.75rem; text-decoration:none;">../dashboard</a>
+  <h1 class="section-title" style="font-size:0.85rem;"><span>scan</span>::{{ scan.id }}</h1>
+  <div class="section-line"></div>
+  <span class="badge" style="color:var(--dim); border-color:var(--dim); font-size:0.65rem;">
+    {% if scan.language and scan.language != "unknown" %}{{ scan.language }}{% else %}code{% endif %}
+  </span>
+  <span class="status-dot status-dot--{{ scan.status }}" id="status-dot"></span>
+  <span id="status-text" style="font-size:0.75rem; color:var(--dim);">{{ scan.status|upper }}</span>
+</div>
+
+<div class="sysinfo" style="margin-bottom:1.2rem;">
+  <span class="sysinfo-item">TARGET: <span>{{ scan.get_target_display_name|truncatechars:60 }}</span></span>
+    <span class="sysinfo-item">LANGUAGE: <span>{% if scan.language and scan.language != "unknown" %}{{ scan.language }}{% else %}auto{% endif %}</span></span>
+  <span class="sysinfo-item">INPUT: <span>{% if scan.input_method == "upload" %}📁 upload{% else %}💻 paste{% endif %}</span></span>
+  <span class="sysinfo-item">STARTED: <span>{{ scan.created_at|date:"Y-m-d H:i:s" }} UTC</span></span>
+</div>
+
+{% if scan.status == 'pending' or scan.status == 'running' %}
+<div class="scan-progress-container">
+  <div class="progress-stages">
+    <div class="stage done" id="stage-submit">
+      <div class="stage-dot">✓</div>
+      <div class="stage-label">submit</div>
+    </div>
+    <div class="stage {% if scan.status == 'running' %}active{% endif %}" id="stage-parse">
+      <div class="stage-dot">2</div>
+      <div class="stage-label">parse</div>
+    </div>
+    <div class="stage" id="stage-analyze">
+      <div class="stage-dot">3</div>
+      <div class="stage-label">ai_scan</div>
+    </div>
+    <div class="stage" id="stage-report">
+      <div class="stage-dot">4</div>
+      <div class="stage-label">report</div>
+    </div>
+    <div class="stage" id="stage-done">
+      <div class="stage-dot">✓</div>
+      <div class="stage-label">done</div>
+    </div>
+  </div>
+
+  <div class="terminal-loader" id="terminal-output">
+    <div class="terminal-line" style="animation-delay:0.1s">initializing vulnerability scanner...</div>
+    <div class="terminal-line" style="animation-delay:0.5s">loading OWASP Top 10 signature database...</div>
+    <div class="terminal-line info" style="animation-delay:0.9s">connecting to Groq inference engine (llama-3.3-70b)...</div>
+    <div class="terminal-line" style="animation-delay:1.3s">dispatching security analysis job...</div>
+    <div class="terminal-line" style="animation-delay:1.7s">running CWE pattern matching...</div>
+    <div class="terminal-line info" style="animation-delay:2.1s">analysis in progress <span class="terminal-cursor"></span></div>
+  </div>
+</div>
+
+{% elif scan.status == 'failed' %}
+<div class="terminal-loader" style="border-color:var(--red);">
+  <div class="terminal-line err">SCAN FAILED</div>
+  <div class="terminal-line err">{{ scan.error_message|default:"unknown error — check GROQ_API_KEY in .env" }}</div>
+  <br>
+  <a href="{% url 'index' %}" class="btn btn--ghost" style="font-size:0.75rem;">retry_scan</a>
+</div>
+
+{% else %}
+<div id="results-container">
+  <div style="text-align:center; padding:3rem; color:var(--dim); font-size:0.8rem;">
+    [*] loading results... <span class="terminal-cursor"></span>
+  </div>
+</div>
+{% endif %}
+
+<div style="margin-top:2rem; padding-top:1rem; border-top:1px solid var(--border); display:flex; justify-content:space-between; flex-wrap:wrap; gap:0.5rem;">
+  <a href="{% url 'dashboard' %}" class="btn btn--ghost" style="font-size:0.75rem;">../dashboard</a>
+  <button class="btn btn--danger" style="font-size:0.75rem;" onclick="deleteScan({{ scan.id }})">rm -rf scan::{{ scan.id }}</button>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const SCAN_ID = {{ scan.id }};
+  const INITIAL_STATUS = "{{ scan.status }}";
+</script>
+<script src="{% static 'js/scan_detail.js' %}"></script>
+{% endblock %}
